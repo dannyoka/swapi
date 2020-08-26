@@ -9,14 +9,16 @@ app.use(express.json());
 
 //people endpoint
 //sortBy option should be either height, mass or name
-app.get("/people/:sortBy", async (req, res) => {
+app.get("/people/:sortBy/:page", async (req, res) => {
   //fetch data
-  const response = await axios.get(`${BASEURL}/people/`);
+  const { sortBy, page } = req.params;
+  console.log(req.params);
+  const response = await axios.get(`${BASEURL}/people/?page=${page}`);
   //get name
   const { results } = response.data;
   //get sortBy params and run through switch of sorting
   const getFinalResults = () => {
-    switch (req.params.sortBy) {
+    switch (sortBy) {
       case "height":
         return results.sort((a, b) => {
           return a.height - b.height;
