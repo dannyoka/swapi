@@ -7,24 +7,51 @@ const PORT = 5000;
 
 app.use(express.json());
 
-//people endpoint
-//sortBy option should be either height, mass or name
-app.get("/people/:sortBy/:page", async (req, res) => {
-  //fetch data
-  const { sortBy, page } = req.params;
+app.get("/people/:sortBy", async (req, res) => {
+  let allPeople = [];
+  const { sortBy } = req.params;
   console.log(req.params);
-  const response = await axios.get(`${BASEURL}/people/?page=${page}`);
-  //get name
-  const { results } = response.data;
-  //get sortBy params and run through switch of sorting
-  const getFinalResults = () => {
-    switch (sortBy) {
+
+  const getViaDoWhile = async (url) => {
+    let response;
+    do {
+      response = await axios.get(url);
+      allPeople.push(...response.data.results);
+      url = response.data.next;
+    } while (response.data.next);
+  };
+
+  // const getViaRecursion = async (url) => {
+  //   let response;
+  //   response = await axios.get(url);
+  //   allPeople = allPeople.push(...response.data.results);
+  //   if (!response.data.next) {
+  //     return;
+  //   }
+  //   getViaRecursion(response.data.next);
+  // };
+
+  // const getViaBruteForce = async (url) => {
+  //   let response;
+  //   for (let i = 1; i < 9; i++) {
+  //     response = await axios.get(`${url}/people/?page=${i}`);
+  //     allPeople = allPeople.concat(response.data.results);
+  //   }
+  // };
+
+  const getFinalResults = (arr, type) => {
+    switch (type) {
       case "height":
-        return results.sort((a, b) => {
+        return arr.sort((a, b) => {
+          if (isNaN(a.height)) {
+            return 1;
+          } else if (isNaN(b.height)) {
+            return -1;
+          }
           return a.height - b.height;
         });
       case "name":
-        return results.sort((a, b) => {
+        return arr.sort((a, b) => {
           if (a.name < b.name) {
             return -1;
           }
@@ -34,59 +61,30 @@ app.get("/people/:sortBy/:page", async (req, res) => {
           return 0;
         });
       case "mass":
-        return results.sort((a, b) => {
+        return arr.sort((a, b) => {
+          if (isNaN(a.mass)) {
+            return 1;
+          } else if (isNaN(b.mass)) {
+            return -1;
+          }
           return a.mass - b.mass;
         });
       default:
         break;
     }
   };
-  res.send(getFinalResults());
+
+  const getAndSort = async () => {
+    await getViaDoWhile(`${BASEURL}/people`);
+    const allPeopleNoCommas = allPeople.map((person) => {
+      person.mass = person.mass.replace(",", "");
+      return person;
+    });
+    const sortedList = getFinalResults(allPeopleNoCommas, sortBy);
+    res.send(sortedList);
+  };
+  getAndSort();
 });
-
-// app.get("/planets", async (req, res) => {
-//   const response = await axios.get(`${BASEURL}/planets`);
-//   const plantes = await Promise.all(
-//     response.data.results.map(async (planet) => {
-//       return new Promise(async (res, rej) => {
-//         let residents = await planet.residents.map(async (resident) => {
-//           let person;
-//           try {
-//             person = await axios.get(resident);
-//           } catch (e) {
-//             console.log("resident failed: ", resident);
-//             console.error(e);
-//           }
-
-//           console.log("name", person.data.name);
-//           return person.data.name;
-//         });
-//         res({
-//           ...planet,
-//           residents,
-//         });
-//       }).then((v) => {
-//         console.log("new planet", v);
-//         return v;
-//       });
-//     })
-//   ).then((all) => {
-//     all.forEach(console.log);
-//     return all;
-//   });
-//   response.data.results.forEach((planet) => {
-//     planet.residents.forEach(async (resident, index) => {
-//       const person = await axios.get(resident);
-//       resident = person.data.name;
-//       console.log(resident);
-//     });
-//   });
-//   const [person] = response.data.results[0].residents;
-//   console.log(person);
-//   const name = await axios.get(person);
-//   console.log("foo");
-//   res.send(plantes);
-// });
 
 app.get("/planets", async (_, res) => {
   const response = await axios.get(`${BASEURL}/planets`);
@@ -102,20 +100,6 @@ app.get("/planets", async (_, res) => {
     )
   );
 });
-
-// app.get("/planets", async (req, res) => {
-//   const response = await axios.get(`${BASEURL}/planets`);
-//   console.log(response.data.results);
-//   res.send(
-//     response.data.results.map((planet) => {
-//       planet.residents.map(async (resident) => {
-//         const res = await axios.get(resident);
-//         return res.data.name;
-//       });
-//       return { ...planet, residents };
-//     })
-//   );
-// });
 
 app.listen(PORT, () => {
   console.log(`Listening on port ${PORT}`);
